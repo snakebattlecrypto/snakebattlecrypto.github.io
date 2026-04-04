@@ -7,3 +7,5 @@ boto3==1.35.0
 pydantic-settings==2.5.0
 python-dotenv==1.0.1
 pydantic[email]==2.8.2
+redis==5.2.1
+slowapi==0.1.9
