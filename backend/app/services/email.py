@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 
 import boto3
 from botocore.exceptions import ClientError
@@ -9,17 +10,20 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 _ses_client = None
+_ses_lock = threading.Lock()
 
 
 def _get_ses_client():
     global _ses_client
     if _ses_client is None:
-        _ses_client = boto3.client(
-            "ses",
-            region_name=settings.aws_region,
-            aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key,
-        )
+        with _ses_lock:
+            if _ses_client is None:
+                _ses_client = boto3.client(
+                    "ses",
+                    region_name=settings.aws_region,
+                    aws_access_key_id=settings.aws_access_key_id,
+                    aws_secret_access_key=settings.aws_secret_access_key,
+                )
     return _ses_client
 
 

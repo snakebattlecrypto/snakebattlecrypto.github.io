@@ -1669,7 +1669,6 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, ref }),
             });
-            const data = await res.json();
 
             if (res.status === 409) {
                 form.classList.add('is-hidden');
@@ -1678,13 +1677,21 @@
                 return;
             }
 
+            if (res.status === 429) {
+                throw new Error('Too many requests. Please wait a moment and try again.');
+            }
+
+            const data = await res.json().catch(() => ({}));
+
             if (!res.ok) throw new Error(data.detail || 'Something went wrong');
 
             form.classList.add('is-hidden');
             note.style.display = 'none';
             success.classList.add('is-visible');
         } catch (err) {
-            note.textContent = err.message;
+            note.textContent = err.message === 'Failed to fetch'
+                ? 'Connection error. Please check your internet and try again.'
+                : err.message;
             note.style.color = '#e040fb';
             btn.textContent = originalText;
             btn.disabled = false;

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     webhook_url: str
     frontend_url: str = "https://snakebattle.cc"
     db_password: str = ""
-    redis_url: str = "redis://redis:6379/0"
+    redis_url: str = "redis://:snakebattle_redis@redis:6379/0"
     webhook_secret: str = ""
 
     class Config:

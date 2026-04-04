@@ -1,1 +1,2 @@
 redis://redis:6379/0
+redis://:snakebattle_redis@redis:6379/0
