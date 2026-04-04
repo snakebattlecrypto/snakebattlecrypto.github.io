@@ -1,0 +1,5 @@
+.env
+slides/
+screenshots/
+docs/
+*.pdf

@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Battle — Play & Earn. Multiplayer PvP with Real Crypto Stakes</title>
+    <meta name="description" content="Snake Battle is a multiplayer PvP game with real crypto stakes. Deposit, play, hunt, and withdraw instantly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-deep: #050508;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --bg-card-hover: rgba(255, 255, 255, 0.06);
+            --cyan: #00d4ff;
+            --cyan-dim: #00a8cc;
+            --magenta: #e040fb;
+            --magenta-deep: #c020d9;
+            --purple: #8b5cf6;
+            --purple-deep: #6d28d9;
+            --white: #ffffff;
+            --white-soft: rgba(255, 255, 255, 0.8);
+            --white-muted: rgba(255, 255, 255, 0.45);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(0, 212, 255, 0.15);
+            --glow-cyan: 0 0 30px rgba(0, 212, 255, 0.3), 0 0 60px rgba(0, 212, 255, 0.1);
+            --glow-magenta: 0 0 30px rgba(224, 64, 251, 0.3), 0 0 60px rgba(224, 64, 251, 0.1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+            background: var(--bg-deep);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-deep);
+            color: var(--white);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ===== BACKGROUND AURORA ===== */
+        .aurora {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .aurora__orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.35;
+            animation: aurora-drift 20s ease-in-out infinite alternate;
+        }
+
+        .aurora__orb--1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--purple-deep), transparent 70%);
+            top: -10%;
+            right: -5%;
+            animation-duration: 25s;
+        }
+
+        .aurora__orb--2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--magenta-deep), transparent 70%);
+            bottom: 20%;
+            left: -10%;
+            animation-duration: 18s;
+            animation-delay: -5s;
+        }
+
+        .aurora__orb--3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.4), transparent 70%);
+            top: 50%;
+            right: 20%;
+            animation-duration: 22s;
+            animation-delay: -10s;
+        }
+
+        @keyframes aurora-drift {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -40px) scale(1.1); }
+            66% { transform: translate(-20px, 30px) scale(0.95); }
+            100% { transform: translate(15px, -15px) scale(1.05); }
+        }
+
+        /* ===== GRID CANVAS ===== */
+        .grid-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== NAV ===== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.4s, backdrop-filter 0.4s;
+        }
+
+        .nav--scrolled {
+            background: rgba(5, 5, 8, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .nav__logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, var(--cyan), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav__cta {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0.6rem 1.5rem;
+            border: 1px solid var(--border-glass);
+            border-radius: 100px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: var(--white-soft);
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .nav__cta:hover {
+            color: var(--cyan);
+            border-color: rgba(0, 212, 255, 0.35);
+            background: rgba(0, 212, 255, 0.05);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.08);
+        }
+
+        .nav__cta--center {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .nav__cta--center:hover {
+            background: var(--cyan);
+            color: var(--bg-deep);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .nav__cta--right {
+            margin-left: auto;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        main {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            position: relative;
+        }
+
+        .hero__badge {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--magenta);
+            padding: 0.5rem 1.5rem;
+            border: 1px solid rgba(224, 64, 251, 0.3);
+            border-radius: 100px;
+            margin-bottom: 2.5rem;
+            background: rgba(224, 64, 251, 0.05);
+            animation: pulse-border 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(224, 64, 251, 0.3); box-shadow: 0 0 15px rgba(224, 64, 251, 0.05); }
+            50% { border-color: rgba(224, 64, 251, 0.6); box-shadow: 0 0 25px rgba(224, 64, 251, 0.15); }
+        }
+
+        .hero__title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(3.5rem, 10vw, 8rem);
+            line-height: 1;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero__title-line {
+            display: block;
+        }
+
+        .hero__title-line--1 {
+            background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 40px rgba(0, 212, 255, 0.25));
+        }
+
+        .hero__title-line--2 {
+            background: linear-gradient(135deg, var(--purple) 0%, var(--magenta) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 40px rgba(224, 64, 251, 0.25));
+        }
+
+        .hero__subtitle {
+            font-size: clamp(1rem, 2.5vw, 1.35rem);
+            font-weight: 300;
+            color: var(--white-soft);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 3rem;
+            max-width: 600px;
+        }
+
+        .hero__trailer {
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.02);
+            position: relative;
+            margin-bottom: 3rem;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.5), 0 0 120px rgba(0, 212, 255, 0.05);
+        }
+
+        .hero__trailer-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            background:
+                radial-gradient(ellipse at center, rgba(139, 92, 246, 0.08), transparent 60%),
+                var(--bg-deep);
+        }
+
+        .hero__play-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: 2px solid var(--cyan);
+            background: rgba(0, 212, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .hero__play-btn:hover {
+            background: rgba(0, 212, 255, 0.15);
+            box-shadow: var(--glow-cyan);
+            transform: scale(1.08);
+        }
+
+        .hero__play-btn svg {
+            width: 28px;
+            height: 28px;
+            fill: var(--cyan);
+            margin-left: 4px;
+        }
+
+        .hero__trailer-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--white-muted);
+        }
+
+        .hero__cta-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 1rem 2.5rem;
+            border-radius: 100px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.35s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn--primary {
+            background: linear-gradient(135deg, var(--cyan), var(--magenta));
+            color: var(--bg-deep);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2), 0 0 60px rgba(224, 64, 251, 0.1);
+        }
+
+        .btn--primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.35), 0 0 80px rgba(224, 64, 251, 0.2);
+        }
+
+        .btn--ghost {
+            background: transparent;
+            color: var(--white-soft);
+            border: 1px solid var(--border-glass);
+        }
+
+        .btn--ghost:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+
+        .hero__scroll-hint {
+            margin: 2.5rem 0 3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .hero__scroll-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            background: rgba(0, 212, 255, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.08), inset 0 0 15px rgba(0, 212, 255, 0.03);
+            transition: all 0.3s;
+        }
+
+        .hero__scroll-hint:hover .hero__scroll-circle {
+            border-color: rgba(0, 212, 255, 0.6);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.15), inset 0 0 20px rgba(0, 212, 255, 0.05);
+        }
+
+        .hero__scroll-circle svg {
+            width: 18px;
+            height: 18px;
+            color: var(--cyan);
+            opacity: 0.7;
+            animation: scroll-arrow 2s ease-in-out infinite;
+        }
+
+        .hero__scroll-hint span {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(0, 212, 255, 0.5);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        @keyframes scroll-arrow {
+            0%, 100% { transform: translateY(-3px); opacity: 0.4; }
+            50% { transform: translateY(3px); opacity: 0.9; }
+        }
+
+        /* ===== SECTION COMMON ===== */
+        .section {
+            padding: 8rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section__label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--magenta);
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .section__title {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-weight: 500;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            text-align: center;
+            margin-bottom: 1rem;
+            color: var(--white);
+        }
+
+        .section__subtitle {
+            font-size: 1rem;
+            font-weight: 300;
+            color: var(--white-muted);
+            text-align: center;
+            max-width: 550px;
+            margin: 0 auto 4rem;
+            line-height: 1.7;
+        }
+
+        /* ===== DIVIDER ===== */
+        .divider {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-glass), var(--cyan-dim), var(--border-glass), transparent);
+            opacity: 0.5;
+        }
+
+        /* ===== HOW IT WORKS ===== */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            position: relative;
+        }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            right: 5%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), var(--purple), transparent);
+            opacity: 0.2;
+            z-index: 0;
+        }
+
+        .step-card {
+            position: relative;
+            z-index: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 2.5rem 1.5rem 2rem;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-glow);
+            transform: translateY(-6px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 212, 255, 0.06);
+        }
+
+        .step-card__number {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 0.65rem;
+            letter-spacing: 0.2em;
+            color: var(--bg-deep);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+
+        .step-card:nth-child(1) .step-card__number { background: var(--cyan); box-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
+        .step-card:nth-child(2) .step-card__number { background: var(--purple); box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+        .step-card:nth-child(3) .step-card__number { background: var(--magenta); box-shadow: 0 0 20px rgba(224, 64, 251, 0.3); }
+        .step-card:nth-child(4) .step-card__number { background: linear-gradient(135deg, var(--cyan), var(--magenta)); box-shadow: 0 0 20px rgba(0, 212, 255, 0.2); }
+
+        .step-card__icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .step-card:nth-child(1) .step-card__icon svg { color: var(--cyan); }
+        .step-card:nth-child(2) .step-card__icon svg { color: var(--purple); }
+        .step-card:nth-child(3) .step-card__icon svg { color: var(--magenta); }
+        .step-card:nth-child(4) .step-card__icon svg { color: var(--cyan); }
+
+        .step-card__icon svg {
+            width: 26px;
+            height: 26px;
+            stroke-width: 1.5;
+        }
+
+        .step-card__title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 0.75rem;
+            color: var(--white);
+        }
+
+        .step-card__desc {
+            font-size: 0.85rem;
+            font-weight: 300;
+            color: var(--white-muted);
+            line-height: 1.65;
+        }
+
+        /* ===== FEATURES STRIP ===== */
+        .features-strip {
+            padding: 4rem 2rem;
+            overflow: hidden;
+        }
+
+        .features-strip__inner {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .feature-pill {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.5rem 1.25rem;
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .feature-pill:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-4px);
+        }
+
+        .feature-pill__dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .feature-pill__text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--white-soft);
+        }
+
+        .feature-pill:nth-child(1) { border-color: rgba(0, 212, 255, 0.2); }
+        .feature-pill:nth-child(2) { border-color: rgba(224, 64, 251, 0.2); }
+        .feature-pill:nth-child(3) { border-color: rgba(139, 92, 246, 0.2); }
+        .feature-pill:nth-child(4) { border-color: rgba(0, 212, 255, 0.2); }
+
+        .feature-pill:nth-child(1):hover { border-color: rgba(0, 212, 255, 0.4); box-shadow: 0 0 30px rgba(0, 212, 255, 0.06); }
+        .feature-pill:nth-child(2):hover { border-color: rgba(224, 64, 251, 0.4); box-shadow: 0 0 30px rgba(224, 64, 251, 0.06); }
+        .feature-pill:nth-child(3):hover { border-color: rgba(139, 92, 246, 0.4); box-shadow: 0 0 30px rgba(139, 92, 246, 0.06); }
+        .feature-pill:nth-child(4):hover { border-color: rgba(0, 212, 255, 0.4); box-shadow: 0 0 30px rgba(0, 212, 255, 0.06); }
+
+        .feature-pill:nth-child(1) .feature-pill__dot { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+        .feature-pill:nth-child(2) .feature-pill__dot { background: var(--magenta); box-shadow: 0 0 10px var(--magenta); }
+        .feature-pill:nth-child(3) .feature-pill__dot { background: var(--purple); box-shadow: 0 0 10px var(--purple); }
+        .feature-pill:nth-child(4) .feature-pill__dot { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+
+        /* ===== WAITLIST ===== */
+        .waitlist {
+            position: relative;
+        }
+
+        .waitlist__glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.06), rgba(224, 64, 251, 0.04), transparent 70%);
+            pointer-events: none;
+            filter: blur(60px);
+        }
+
+        .waitlist__card {
+            position: relative;
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 3.5rem 3rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            text-align: center;
+        }
+
+        .waitlist__form {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .waitlist__input {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border-radius: 100px;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 400;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .waitlist__input::placeholder {
+            color: var(--white-muted);
+        }
+
+        .waitlist__input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.08);
+        }
+
+        .waitlist__btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 1rem 2rem;
+            border-radius: 100px;
+            border: none;
+            background: linear-gradient(135deg, var(--cyan), var(--magenta));
+            color: var(--bg-deep);
+            cursor: pointer;
+            transition: all 0.35s;
+            white-space: nowrap;
+        }
+
+        .waitlist__btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.25), 0 0 60px rgba(224, 64, 251, 0.15);
+        }
+
+        .waitlist__note {
+            font-size: 0.75rem;
+            color: var(--white-muted);
+            margin-top: 1rem;
+        }
+
+        /* Success state */
+        .waitlist__success {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .waitlist__success.is-visible {
+            display: flex;
+        }
+
+        .waitlist__form.is-hidden {
+            display: none;
+        }
+
+        .waitlist__success-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: success-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .waitlist__success-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--cyan);
+        }
+
+        @keyframes success-pop {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
+        }
+
+        .waitlist__success-text {
+            font-size: 1rem;
+            color: var(--white-soft);
+            line-height: 1.6;
+        }
+
+        .waitlist__success-text strong {
+            color: var(--cyan);
+        }
+
+        .waitlist__success-bot {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 100px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: rgba(0, 212, 255, 0.05);
+            color: var(--cyan);
+            text-decoration: none;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .waitlist__success-bot:hover {
+            background: rgba(0, 212, 255, 0.12);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .waitlist__success-bot svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            padding: 4rem 2rem;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer__socials {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .footer__social {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.75rem;
+            border-radius: 100px;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--white-soft);
+            text-decoration: none;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .footer__social:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0, 212, 255, 0.05);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+
+        .footer__social svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .footer__copy {
+            font-size: 0.75rem;
+            color: var(--white-muted);
+            letter-spacing: 0.04em;
+        }
+
+        /* ===== SCROLL ANIMATIONS ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 900px) {
+            .steps {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .steps::before {
+                display: none;
+            }
+            .nav__cta--right {
+                display: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .hero {
+                padding: 7rem 1.25rem 3rem;
+            }
+            .section {
+                padding: 5rem 1.25rem;
+            }
+            .steps {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .step-card {
+                padding: 2rem 1.25rem 1.5rem;
+            }
+            .waitlist__form {
+                flex-direction: column;
+            }
+            .waitlist__card {
+                padding: 2.5rem 1.5rem;
+            }
+            .footer__socials {
+                flex-direction: column;
+                align-items: center;
+            }
+            .features-strip__inner {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+            .feature-pill {
+                padding: 1rem 0.75rem;
+            }
+            .hero__trailer {
+                border-radius: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Background effects -->
+<div class="aurora">
+    <div class="aurora__orb aurora__orb--1"></div>
+    <div class="aurora__orb aurora__orb--2"></div>
+    <div class="aurora__orb aurora__orb--3"></div>
+</div>
+<canvas class="grid-canvas" id="gridCanvas"></canvas>
+
+<!-- Navigation -->
+<nav class="nav" id="nav">
+    <div class="nav__logo">Snake Battle</div>
+    <a href="#waitlist" class="nav__cta nav__cta--center">Join Waitlist</a>
+    <a href="#how" class="nav__cta nav__cta--right">How It Works</a>
+</nav>
+
+<main>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero__badge">Multiplayer PvP Crypto Game</div>
+        <h1 class="hero__title">
+            <span class="hero__title-line hero__title-line--1">Snake</span>
+            <span class="hero__title-line hero__title-line--2">Battle</span>
+        </h1>
+        <p class="hero__subtitle">Play & Earn. Multiplayer PvP with Real Crypto Stakes</p>
+
+        <div class="hero__scroll-hint">
+            <div class="hero__scroll-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14"/>
+                    <path d="m19 12-7 7-7-7"/>
+                </svg>
+            </div>
+            <span>Scroll</span>
+        </div>
+
+        <div class="hero__trailer">
+            <div class="hero__trailer-placeholder">
+                <div class="hero__play-btn">
+                    <svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>
+                </div>
+                <span class="hero__trailer-label">Gameplay Trailer — Coming Soon</span>
+            </div>
+        </div>
+
+        <div class="hero__cta-group">
+            <a href="#waitlist" class="btn btn--primary">Join Waitlist</a>
+            <a href="#how" class="btn btn--ghost">Learn More</a>
+        </div>
+    </section>
+
+    <!-- Features strip -->
+    <div class="features-strip">
+        <div class="features-strip__inner">
+            <div class="feature-pill reveal">
+                <span class="feature-pill__dot"></span>
+                <span class="feature-pill__text">Zero Learning Curve</span>
+            </div>
+            <div class="feature-pill reveal reveal-delay-1">
+                <span class="feature-pill__dot"></span>
+                <span class="feature-pill__text">Start from $0.10</span>
+            </div>
+            <div class="feature-pill reveal reveal-delay-2">
+                <span class="feature-pill__dot"></span>
+                <span class="feature-pill__text">Instant Results</span>
+            </div>
+            <div class="feature-pill reveal reveal-delay-3">
+                <span class="feature-pill__dot"></span>
+                <span class="feature-pill__text">Pure Skill Wins</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- How It Works -->
+    <section class="section" id="how">
+        <p class="section__label reveal">Step by Step</p>
+        <h2 class="section__title reveal">How it works</h2>
+        <p class="section__subtitle reveal">Classic snake mechanics meets real-money PvP. Eat opponents, take their crypto.</p>
+
+        <div class="steps">
+            <!-- Step 1: Deposit -->
+            <div class="step-card reveal reveal-delay-1">
+                <div class="step-card__number">1</div>
+                <div class="step-card__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+                        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+                        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+                    </svg>
+                </div>
+                <h3 class="step-card__title">Deposit</h3>
+                <p class="step-card__desc">Transfer crypto to your game wallet. Accept any coin, 40+ networks supported.</p>
+            </div>
+
+            <!-- Step 2: Choose League -->
+            <div class="step-card reveal reveal-delay-2">
+                <div class="step-card__number">2</div>
+                <div class="step-card__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9Z"/>
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9Z"/>
+                        <path d="M4 22h16"/>
+                        <path d="M10 22V2c0 4-4 7-4 7h12s-4-3-4-7v20"/>
+                    </svg>
+                </div>
+                <h3 class="step-card__title">Choose League</h3>
+                <p class="step-card__desc">Select your stake level from $0.10 to $10. Four leagues for every player type.</p>
+            </div>
+
+            <!-- Step 3: Play & Hunt -->
+            <div class="step-card reveal reveal-delay-3">
+                <div class="step-card__number">3</div>
+                <div class="step-card__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="m4.93 4.93 4.24 4.24"/>
+                        <path d="m14.83 9.17 4.24-4.24"/>
+                        <path d="m14.83 14.83 4.24 4.24"/>
+                        <path d="m9.17 14.83-4.24 4.24"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <h3 class="step-card__title">Play & Hunt</h3>
+                <p class="step-card__desc">Control your snake, hunt other players. Kill = earn up to 87.5% of their balance.</p>
+            </div>
+
+            <!-- Step 4: Withdraw -->
+            <div class="step-card reveal reveal-delay-4">
+                <div class="step-card__number">4</div>
+                <div class="step-card__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20"/>
+                        <path d="m17 7-5-5-5 5"/>
+                        <path d="M8 22h8"/>
+                        <path d="M5 12H2"/>
+                        <path d="M22 12h-3"/>
+                    </svg>
+                </div>
+                <h3 class="step-card__title">Withdraw</h3>
+                <p class="step-card__desc">Cash out to your external wallet anytime. No lockups, no waiting, full control.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Waitlist -->
+    <section class="section waitlist" id="waitlist">
+        <div class="waitlist__glow"></div>
+        <p class="section__label reveal">Early Access</p>
+        <h2 class="section__title reveal">Join the Waitlist</h2>
+        <p class="section__subtitle reveal">Be first to play when we launch. Enter your email and verify through our Telegram bot to secure your spot.</p>
+
+        <div class="waitlist__card reveal">
+            <form class="waitlist__form" id="waitlistForm">
+                <input
+                    type="email"
+                    class="waitlist__input"
+                    placeholder="your@email.com"
+                    required
+                    autocomplete="email"
+                    id="emailInput"
+                >
+                <button type="submit" class="waitlist__btn">Join Waitlist</button>
+            </form>
+            <p class="waitlist__note" id="waitlistNote">No spam. We'll send a verification code to your email.</p>
+
+            <div class="waitlist__success" id="waitlistSuccess">
+                <div class="waitlist__success-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+                <p class="waitlist__success-text">
+                    Check your inbox for a <strong>6-digit code</strong>.<br>
+                    Enter it in our Telegram bot to verify.
+                </p>
+                <a href="#" class="waitlist__success-bot" target="_blank" rel="noopener">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.74 3.98-1.73 6.63-2.87 7.95-3.43 3.79-1.58 4.57-1.85 5.08-1.86.11 0 .37.03.53.17.14.12.18.28.2.45-.01.06.01.24 0 .38z"/></svg>
+                    Open Telegram Bot
+                </a>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- Footer -->
+<div class="divider"></div>
+<footer class="footer">
+    <div class="footer__socials">
+        <a href="#" class="footer__social" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.74 3.98-1.73 6.63-2.87 7.95-3.43 3.79-1.58 4.57-1.85 5.08-1.86.11 0 .37.03.53.17.14.12.18.28.2.45-.01.06.01.24 0 .38z"/></svg>
+            Telegram
+        </a>
+        <a href="#" class="footer__social" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Twitter / X
+        </a>
+        <a href="#" class="footer__social" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.04c-5.5 0-10 4.49-10 10.02 0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.52 1.49-3.93 3.78-3.93 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02z"/></svg>
+            Facebook
+        </a>
+        <a href="#" class="footer__social" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.908 4.908 0 0 1 1.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 0 1-1.153 1.772 4.915 4.915 0 0 1-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 0 1-1.772-1.153 4.904 4.904 0 0 1-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 0 1 1.153-1.772A4.897 4.897 0 0 1 5.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 1.802c-2.67 0-2.986.01-4.04.058-.976.045-1.505.207-1.858.344-.466.182-.8.399-1.15.748-.35.35-.566.684-.748 1.15-.137.353-.3.882-.344 1.857-.048 1.055-.058 1.37-.058 4.041 0 2.67.01 2.986.058 4.04.045.977.207 1.505.344 1.858.182.466.399.8.748 1.15.35.35.684.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058 2.67 0 2.987-.01 4.04-.058.977-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.684.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041 0-2.67-.01-2.986-.058-4.04-.045-.977-.207-1.505-.344-1.858a3.097 3.097 0 0 0-.748-1.15 3.098 3.098 0 0 0-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.054-.048-1.37-.058-4.041-.058zm0 3.063a5.135 5.135 0 1 1 0 10.27 5.135 5.135 0 0 1 0-10.27zm0 8.468a3.333 3.333 0 1 0 0-6.666 3.333 3.333 0 0 0 0 6.666zm6.538-8.671a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>
+            Instagram
+        </a>
+        <a href="#" class="footer__social" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            YouTube
+        </a>
+        <a href="#" class="footer__social" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.75a8.18 8.18 0 0 0 4.78 1.54V6.84a4.84 4.84 0 0 1-1.02-.15z"/></svg>
+            TikTok
+        </a>
+    </div>
+    <p class="footer__copy">&copy; 2025 Snake Battle. All rights reserved.</p>
+</footer>
+
+<script>
+    // ===== GRID SNAKE PULSES =====
+    (function() {
+        const cvs = document.getElementById('gridCanvas');
+        const ctx = cvs.getContext('2d');
+        const CELL = 60;
+        const HIT_DIST = 18;
+        const SNAKE_LEN = 6;
+        const SNAKE_SPEED = 2.8;
+        const MAX_SNAKES = 10;
+        const COLORS = [
+            [0, 212, 255],
+            [224, 64, 251],
+            [139, 92, 246],
+        ];
+
+        let mx = -1000, my = -1000;
+        let prevMx = -1000, prevMy = -1000;
+        let mouseMoving = false;
+        let moveTimer = 0;
+        let W = 0, H = 0;
+        let cols = 0, rows = 0;
+        let cooldown = 0;
+        let snakes = [];
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            W = window.innerWidth;
+            H = window.innerHeight;
+            cvs.width = W * dpr;
+            cvs.height = H * dpr;
+            cvs.style.width = W + 'px';
+            cvs.style.height = H + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            cols = Math.ceil(W / CELL) + 1;
+            rows = Math.ceil(H / CELL) + 1;
+        }
+
+        // Node = grid intersection. Each node has (x, y).
+        // Edges connect adjacent nodes (horizontal and vertical).
+        // A snake is a chain of positions travelling along edges.
+
+        function nodeX(c) { return c * CELL; }
+        function nodeY(r) { return r * CELL; }
+
+        // Get neighbors of a node (col, row) — up/down/left/right
+        function neighbors(c, r) {
+            const n = [];
+            if (c > 0)      n.push([c - 1, r]);
+            if (c < cols)    n.push([c + 1, r]);
+            if (r > 0)      n.push([c, r - 1]);
+            if (r < rows)    n.push([c, r + 1]);
+            return n;
+        }
+
+        // Find the closest grid edge to mouse and return spawn info
+        function findClosestEdge() {
+            // Check horizontal edges
+            const gr = Math.round(my / CELL);
+            const gc = Math.floor(mx / CELL);
+            const gy = gr * CELL;
+
+            if (gr >= 0 && gr <= rows && gc >= 0 && gc < cols) {
+                const x1 = gc * CELL, x2 = (gc + 1) * CELL;
+                // Clamp mouse to segment
+                const cx = Math.max(x1, Math.min(x2, mx));
+                const distH = Math.abs(my - gy);
+                if (distH < HIT_DIST) {
+                    const t = (mx - x1) / CELL;
+                    if (t > 0.1 && t < 0.9) {
+                        return { col: gc, row: gr, dir: t < 0.5 ? 'left' : 'right', x: cx, y: gy, horizontal: true };
+                    }
+                }
+            }
+
+            // Check vertical edges
+            const gc2 = Math.round(mx / CELL);
+            const gr2 = Math.floor(my / CELL);
+            const gx = gc2 * CELL;
+
+            if (gc2 >= 0 && gc2 <= cols && gr2 >= 0 && gr2 < rows) {
+                const y1 = gr2 * CELL, y2 = (gr2 + 1) * CELL;
+                const cy = Math.max(y1, Math.min(y2, my));
+                const distV = Math.abs(mx - gx);
+                if (distV < HIT_DIST) {
+                    const t = (my - y1) / CELL;
+                    if (t > 0.1 && t < 0.9) {
+                        return { col: gc2, row: gr2, dir: t < 0.5 ? 'up' : 'down', x: gx, y: cy, horizontal: false };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // Snake: array of {x, y} positions (head first), plus movement state
+        function spawnSnake(info) {
+            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+            let headCol, headRow, dx, dy;
+
+            if (info.horizontal) {
+                headRow = info.row;
+                if (info.dir === 'right') {
+                    headCol = info.col + 1;
+                    dx = 1; dy = 0;
+                } else {
+                    headCol = info.col;
+                    dx = -1; dy = 0;
+                }
+            } else {
+                headCol = info.col;
+                if (info.dir === 'down') {
+                    headRow = info.row + 1;
+                    dx = 0; dy = 1;
+                } else {
+                    headRow = info.row;
+                    dx = 0; dy = -1;
+                }
+            }
+
+            const snake = {
+                // Path nodes the snake will follow
+                path: [], // [{x, y}, ...]
+                progress: 0, // px along current segment
+                segIndex: 0,
+                color: color,
+                life: 1,
+                speed: SNAKE_SPEED * (0.8 + Math.random() * 0.5),
+                length: SNAKE_LEN,
+                trail: [], // rendered positions
+            };
+
+            // Build a random path of ~20 nodes
+            let cc = headCol, cr = headRow;
+            let pdx = dx, pdy = dy;
+            snake.path.push({ x: nodeX(cc), y: nodeY(cr) });
+
+            for (let i = 0; i < 14; i++) {
+                const nbrs = neighbors(cc, cr);
+                // Filter: prefer continuing forward, avoid going back
+                const forward = nbrs.filter(([nc, nr]) => {
+                    const ndx = nc - cc, ndy = nr - cr;
+                    return !(ndx === -pdx && ndy === -pdy); // not reverse
+                });
+
+                const choices = forward.length > 0 ? forward : nbrs;
+                // Weight: 60% chance to go straight, 40% to turn
+                let pick;
+                const straight = choices.filter(([nc, nr]) => nc - cc === pdx && nr - cr === pdy);
+                if (straight.length > 0 && Math.random() < 0.6) {
+                    pick = straight[0];
+                } else {
+                    pick = choices[Math.floor(Math.random() * choices.length)];
+                }
+
+                pdx = pick[0] - cc;
+                pdy = pick[1] - cr;
+                cc = pick[0];
+                cr = pick[1];
+                snake.path.push({ x: nodeX(cc), y: nodeY(cr) });
+            }
+
+            snakes.push(snake);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Draw faint grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let c = 0; c <= cols; c++) {
+                const x = c * CELL;
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, rows * CELL);
+            }
+            for (let r = 0; r <= rows; r++) {
+                const y = r * CELL;
+                ctx.moveTo(0, y);
+                ctx.lineTo(cols * CELL, y);
+            }
+            ctx.stroke();
+
+            // Check if mouse is moving
+            const mdx = mx - prevMx, mdy = my - prevMy;
+            const mouseDist = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (mouseDist > 2) {
+                mouseMoving = true;
+                moveTimer = 10;
+            } else if (moveTimer > 0) {
+                moveTimer--;
+            } else {
+                mouseMoving = false;
+            }
+            prevMx = mx;
+            prevMy = my;
+
+            // Spawn snakes only when cursor is moving
+            if (cooldown > 0) cooldown--;
+            if (cooldown === 0 && mouseMoving && snakes.length < MAX_SNAKES) {
+                const edge = findClosestEdge();
+                if (edge) {
+                    spawnSnake(edge);
+                    cooldown = 6;
+                }
+            }
+
+            // Update & draw snakes
+            for (let i = snakes.length - 1; i >= 0; i--) {
+                const s = snakes[i];
+                const path = s.path;
+
+                // Move head along path
+                s.progress += s.speed;
+
+                while (s.segIndex < path.length - 1 && s.progress >= CELL) {
+                    s.progress -= CELL;
+                    s.segIndex++;
+                }
+
+                // Build trail from current head position backwards
+                const trail = [];
+                const totalLen = s.length * CELL;
+                let remaining = totalLen;
+
+                // Head position
+                if (s.segIndex < path.length - 1) {
+                    const a = path[s.segIndex];
+                    const b = path[s.segIndex + 1];
+                    const t = s.progress / CELL;
+                    trail.push({
+                        x: a.x + (b.x - a.x) * t,
+                        y: a.y + (b.y - a.y) * t,
+                    });
+                    // Distance from head back to node a
+                    const headToA = s.progress;
+                    remaining -= headToA;
+                    trail.push({ x: a.x, y: a.y });
+                } else {
+                    // Snake reached end of path
+                    trail.push(path[path.length - 1]);
+                }
+
+                // Walk backward through path segments
+                let idx = s.segIndex - 1;
+                while (remaining > 0 && idx >= 0) {
+                    trail.push({ x: path[idx].x, y: path[idx].y });
+                    remaining -= CELL;
+                    idx--;
+                }
+
+                // Fade out when nearing end of path
+                if (s.segIndex >= path.length - 3) {
+                    s.life -= 0.03;
+                }
+
+                // Remove dead snakes
+                if (s.life <= 0 || s.segIndex >= path.length - 1) {
+                    snakes.splice(i, 1);
+                    continue;
+                }
+
+                // Draw snake body
+                if (trail.length < 2) continue;
+
+                const [cr, cg, cb] = s.color;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                for (let j = 0; j < trail.length - 1; j++) {
+                    const a = trail[j];
+                    const b = trail[j + 1];
+                    const frac = j / trail.length;
+                    const alpha = (1 - frac) * s.life;
+                    const width = Math.max(0.3, (1 - frac * 0.8) * 1.2);
+
+                    // Glow layer
+                    ctx.beginPath();
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+                    ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.07})`;
+                    ctx.lineWidth = width + 4;
+                    ctx.stroke();
+
+                    // Core line
+                    ctx.beginPath();
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+                    ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha * 0.4})`;
+                    ctx.lineWidth = width;
+                    ctx.stroke();
+                }
+
+                // Head glow dot
+                const head = trail[0];
+                const headAlpha = s.life;
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${headAlpha * 0.6})`;
+                ctx.fill();
+
+                // Outer head glow
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${headAlpha * 0.08})`;
+                ctx.fill();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            mx = e.clientX;
+            my = e.clientY;
+        }, { passive: true });
+
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+    })();
+
+    // Nav scroll effect
+    const nav = document.getElementById('nav');
+    const onScroll = () => {
+        nav.classList.toggle('nav--scrolled', window.scrollY > 40);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Scroll reveal
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+    reveals.forEach(el => observer.observe(el));
+
+    // Waitlist form (static demo)
+    const form = document.getElementById('waitlistForm');
+    const success = document.getElementById('waitlistSuccess');
+    const note = document.getElementById('waitlistNote');
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('emailInput').value;
+        if (!email) return;
+
+        // Show success state
+        form.classList.add('is-hidden');
+        note.style.display = 'none';
+        success.classList.add('is-visible');
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = document.querySelector(link.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+</script>
+</body>
+</html>
