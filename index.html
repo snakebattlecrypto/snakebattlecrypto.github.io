@@ -1552,7 +1552,9 @@
         btn.disabled = true;
 
         const urlParams = new URLSearchParams(window.location.search);
-        const ref = urlParams.get('ref');
+        const urlRef = urlParams.get('ref');
+        if (urlRef) sessionStorage.setItem('snakebattle_ref', urlRef);
+        const ref = urlRef || sessionStorage.getItem('snakebattle_ref');
 
         try {
             const res = await fetch(`${API_URL}/api/waitlist`, {
