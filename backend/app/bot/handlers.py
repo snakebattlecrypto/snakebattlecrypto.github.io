@@ -32,6 +32,21 @@ async def _check_rate_limit(telegram_id: int) -> bool:
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
+    async with async_session() as session:
+        result = await session.execute(
+            select(WaitlistUser).where(WaitlistUser.telegram_id == message.from_user.id)
+        )
+        user = result.scalar_one_or_none()
+
+    if user and user.status == "verified":
+        await message.answer(
+            f"You're already verified! Welcome back.\n\n"
+            f"Your referral link:\nsnakebattle.cc/?ref={user.referral_code}\n\n"
+            f"You've invited {user.referral_count} people.\n\n"
+            f"Use /help to see available commands."
+        )
+        return
+
     await message.answer(
         "Welcome to Snake Battle!\n\n"
         "Enter your 6-digit verification code from email to get started."
