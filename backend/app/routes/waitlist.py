@@ -2,15 +2,19 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from app.database import get_session
 from app.models import WaitlistUser
-from app.services.email import send_verification_email
+from app.services.email_queue import enqueue_email
 from app.services.verification import generate_code
 
 router = APIRouter(prefix="/api")
+limiter = Limiter(key_func=get_remote_address)
 
 MAX_CODES_PER_HOUR = 5
 
@@ -26,7 +30,8 @@ class WaitlistResponse(BaseModel):
 
 
 @router.post("/waitlist", response_model=WaitlistResponse)
-async def join_waitlist(body: WaitlistRequest, session: AsyncSession = Depends(get_session)):
+@limiter.limit("10/minute")
+async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncSession = Depends(get_session)):
     now = datetime.now(timezone.utc)
     email = body.email.lower().strip()
 
@@ -72,9 +77,7 @@ async def join_waitlist(body: WaitlistRequest, session: AsyncSession = Depends(g
 
     await session.commit()
 
-    # Send email
-    sent = await send_verification_email(email, code)
-    if not sent:
-        raise HTTPException(status_code=500, detail="Failed to send email. Please try again.")
+    # Enqueue email for async delivery
+    await enqueue_email(email, code)
 
     return WaitlistResponse(success=True, message="Verification code sent to your email")
