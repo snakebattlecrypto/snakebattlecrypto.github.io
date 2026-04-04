@@ -1,7 +1,9 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import Update
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +28,16 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    await bot.set_webhook(settings.webhook_url, drop_pending_updates=True)
+    for attempt in range(3):
+        try:
+            await bot.set_webhook(settings.webhook_url, drop_pending_updates=True)
+            break
+        except TelegramRetryAfter as e:
+            logging.warning("Webhook rate limited, retrying in %ds...", e.retry_after)
+            await asyncio.sleep(e.retry_after + 1)
+        except Exception as e:
+            logging.warning("Webhook setup failed (attempt %d): %s", attempt + 1, e)
+            await asyncio.sleep(2)
 
     worker_task = asyncio.create_task(email_worker())
 
