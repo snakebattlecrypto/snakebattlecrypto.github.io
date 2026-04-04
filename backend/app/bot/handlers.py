@@ -1,14 +1,17 @@
+import logging
 from datetime import datetime, timezone
 
 from aiogram import Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.database import async_session
 from app.models import WaitlistUser
 from app.services.verification import generate_referral_code
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -51,6 +54,10 @@ async def cmd_referral(message: Message):
         await message.answer("Verify first to get your referral link. Enter your 6-digit code.")
         return
 
+    if not user.referral_code:
+        await message.answer("Something went wrong with your referral code. Please contact support.")
+        return
+
     await message.answer(
         f"Your referral link:\nsnakebattle.cc/?ref={user.referral_code}\n\n"
         f"You've invited {user.referral_count} people."
@@ -81,13 +88,15 @@ async def handle_code(message: Message):
             await message.answer("You are already verified!")
             return
 
-        # Find user by code
+        # Find user by code — lock row to prevent race conditions
         result = await session.execute(
-            select(WaitlistUser).where(
+            select(WaitlistUser)
+            .where(
                 WaitlistUser.verification_code == code,
                 WaitlistUser.code_expires_at > now,
                 WaitlistUser.status == "pending",
             )
+            .with_for_update()
         )
         user = result.scalar_one_or_none()
 
@@ -95,22 +104,43 @@ async def handle_code(message: Message):
             await message.answer("Invalid or expired code. Request a new one at snakebattle.cc")
             return
 
+        # Generate unique referral code with collision retry
+        ref_code = None
+        for _ in range(5):
+            candidate = generate_referral_code()
+            exists = await session.execute(
+                select(WaitlistUser.id).where(WaitlistUser.referral_code == candidate)
+            )
+            if not exists.scalar_one_or_none():
+                ref_code = candidate
+                break
+
+        if not ref_code:
+            logger.error("Failed to generate unique referral code after 5 attempts")
+            await message.answer("Something went wrong. Please try again.")
+            return
+
         # Verify user
-        ref_code = generate_referral_code()
         user.telegram_id = message.from_user.id
         user.status = "verified"
         user.referral_code = ref_code
         user.verification_code = None
 
-        # Increment referrer's count
-        if user.referred_by:
+        # Increment referrer's count (prevent self-referral)
+        if user.referred_by and user.referred_by != ref_code:
             await session.execute(
                 update(WaitlistUser)
                 .where(WaitlistUser.referral_code == user.referred_by)
                 .values(referral_count=WaitlistUser.referral_count + 1)
             )
 
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            logger.warning("Verification conflict for code %s", code)
+            await message.answer("Verification conflict. Please try again.")
+            return
 
     await message.answer(
         f"Verified! Welcome to Snake Battle.\n\n"

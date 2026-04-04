@@ -20,7 +20,7 @@ class WaitlistUser(Base):
     code_requests_count: Mapped[int] = mapped_column(Integer, default=0)
     code_requests_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     referral_code: Mapped[str | None] = mapped_column(String(8), unique=True, nullable=True)
-    referred_by: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    referred_by: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
     referral_count: Mapped[int] = mapped_column(Integer, default=0)
     waitlist_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

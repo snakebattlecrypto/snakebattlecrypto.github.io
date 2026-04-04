@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -21,7 +21,7 @@ MAX_CODES_PER_HOUR = 5
 
 class WaitlistRequest(BaseModel):
     email: EmailStr
-    ref: str | None = None
+    ref: str | None = Field(None, max_length=8)
 
 
 class WaitlistResponse(BaseModel):
@@ -42,6 +42,15 @@ async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncS
     if user and user.status == "verified":
         raise HTTPException(status_code=409, detail="Email already verified")
 
+    # Validate referral code exists if provided
+    valid_ref = None
+    if body.ref:
+        ref_exists = await session.execute(
+            select(WaitlistUser.referral_code).where(WaitlistUser.referral_code == body.ref)
+        )
+        if ref_exists.scalar_one_or_none():
+            valid_ref = body.ref
+
     if user:
         # Check rate limit
         if user.code_requests_reset_at and now < user.code_requests_reset_at:
@@ -52,6 +61,10 @@ async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncS
             user.code_requests_reset_at = now + timedelta(hours=1)
 
         user.code_requests_count += 1
+
+        # Apply ref on resend if not already set
+        if valid_ref and not user.referred_by:
+            user.referred_by = valid_ref
     else:
         # Waitlist position = next available
         count_result = await session.execute(
@@ -66,8 +79,8 @@ async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncS
             code_requests_count=1,
             code_requests_reset_at=now + timedelta(hours=1),
         )
-        if body.ref:
-            user.referred_by = body.ref
+        if valid_ref:
+            user.referred_by = valid_ref
         session.add(user)
 
     # Generate new code (invalidates old one)
