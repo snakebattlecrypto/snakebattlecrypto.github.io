@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 
 from aiogram import Dispatcher, F, Router
@@ -13,6 +14,28 @@ from app.services.verification import generate_referral_code
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+# In-memory brute-force protection: {telegram_id: (attempt_count, first_attempt_time)}
+_code_attempts: dict[int, tuple[int, float]] = defaultdict(lambda: (0, 0.0))
+MAX_CODE_ATTEMPTS = 10
+ATTEMPT_WINDOW = 900  # 15 minutes in seconds
+
+
+def _check_rate_limit(telegram_id: int) -> bool:
+    """Returns True if the user is allowed to attempt, False if rate limited."""
+    now = datetime.now(timezone.utc).timestamp()
+    count, first_time = _code_attempts[telegram_id]
+
+    # Reset window if expired
+    if now - first_time > ATTEMPT_WINDOW:
+        _code_attempts[telegram_id] = (1, now)
+        return True
+
+    if count >= MAX_CODE_ATTEMPTS:
+        return False
+
+    _code_attempts[telegram_id] = (count + 1, first_time)
+    return True
 
 
 @router.message(Command("start"))
@@ -78,11 +101,17 @@ async def cmd_help(message: Message):
 async def handle_code(message: Message):
     code = message.text.strip()
     now = datetime.now(timezone.utc)
+    telegram_id = message.from_user.id
+
+    # Brute-force protection
+    if not _check_rate_limit(telegram_id):
+        await message.answer("Too many attempts. Please wait 15 minutes and try again.")
+        return
 
     async with async_session() as session:
         # Check if this telegram_id is already linked
         existing = await session.execute(
-            select(WaitlistUser).where(WaitlistUser.telegram_id == message.from_user.id)
+            select(WaitlistUser).where(WaitlistUser.telegram_id == telegram_id)
         )
         if existing.scalar_one_or_none():
             await message.answer("You are already verified!")
@@ -121,18 +150,23 @@ async def handle_code(message: Message):
             return
 
         # Verify user
-        user.telegram_id = message.from_user.id
+        user.telegram_id = telegram_id
         user.status = "verified"
         user.referral_code = ref_code
         user.verification_code = None
 
-        # Increment referrer's count (prevent self-referral)
-        if user.referred_by and user.referred_by != ref_code:
-            await session.execute(
-                update(WaitlistUser)
-                .where(WaitlistUser.referral_code == user.referred_by)
-                .values(referral_count=WaitlistUser.referral_count + 1)
+        # Increment referrer's count (prevent self-referral by checking user IDs)
+        if user.referred_by:
+            referrer = await session.execute(
+                select(WaitlistUser).where(WaitlistUser.referral_code == user.referred_by)
             )
+            referrer_user = referrer.scalar_one_or_none()
+            if referrer_user and referrer_user.id != user.id:
+                await session.execute(
+                    update(WaitlistUser)
+                    .where(WaitlistUser.id == referrer_user.id)
+                    .values(referral_count=WaitlistUser.referral_count + 1)
+                )
 
         try:
             await session.commit()

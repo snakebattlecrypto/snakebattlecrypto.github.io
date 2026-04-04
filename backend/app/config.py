@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     frontend_url: str = "https://snakebattle.cc"
     db_password: str = ""
     redis_url: str = "redis://redis:6379/0"
+    webhook_secret: str = ""
 
     class Config:
         env_file = ".env"

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,6 +8,7 @@ from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import Update
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -21,6 +23,11 @@ from app.services.email_queue import close_redis, email_worker
 bot = Bot(token=settings.telegram_bot_token)
 dp = setup_dispatcher()
 
+# Generate webhook secret from bot token (deterministic, no extra env var needed)
+WEBHOOK_SECRET = settings.webhook_secret or hashlib.sha256(
+    settings.telegram_bot_token.encode()
+).hexdigest()[:64]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,7 +37,11 @@ async def lifespan(app: FastAPI):
 
     for attempt in range(3):
         try:
-            await bot.set_webhook(settings.webhook_url, drop_pending_updates=True)
+            await bot.set_webhook(
+                settings.webhook_url,
+                drop_pending_updates=True,
+                secret_token=WEBHOOK_SECRET,
+            )
             break
         except TelegramRetryAfter as e:
             logging.warning("Webhook rate limited, retrying in %ds...", e.retry_after)
@@ -77,6 +88,11 @@ app.include_router(waitlist_router)
 
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
+    # Verify webhook secret from Telegram
+    token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if token != WEBHOOK_SECRET:
+        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
     data = await request.json()
     update = Update.model_validate(data, context={"bot": bot})
     await dp.feed_update(bot, update)
