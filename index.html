@@ -1103,7 +1103,7 @@
                     Check your inbox for a <strong>6-digit code</strong>.<br>
                     Enter it in our Telegram bot to verify.
                 </p>
-                <a href="#" class="waitlist__success-bot" target="_blank" rel="noopener">
+                <a href="https://t.me/SnakeBattleBot" class="waitlist__success-bot" target="_blank" rel="noopener">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.74 3.98-1.73 6.63-2.87 7.95-3.43 3.79-1.58 4.57-1.85 5.08-1.86.11 0 .37.03.53.17.14.12.18.28.2.45-.01.06.01.24 0 .38z"/></svg>
                     Open Telegram Bot
                 </a>
@@ -1487,20 +1487,43 @@
 
     reveals.forEach(el => observer.observe(el));
 
-    // Waitlist form (static demo)
+    // Waitlist form
     const form = document.getElementById('waitlistForm');
     const success = document.getElementById('waitlistSuccess');
     const note = document.getElementById('waitlistNote');
+    const API_URL = 'https://api.snakebattle.cc';
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('emailInput').value;
         if (!email) return;
 
-        // Show success state
-        form.classList.add('is-hidden');
-        note.style.display = 'none';
-        success.classList.add('is-visible');
+        const btn = form.querySelector('.waitlist__btn');
+        const originalText = btn.textContent;
+        btn.textContent = 'SENDING...';
+        btn.disabled = true;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const ref = urlParams.get('ref');
+
+        try {
+            const res = await fetch(`${API_URL}/api/waitlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, ref }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Something went wrong');
+
+            form.classList.add('is-hidden');
+            note.style.display = 'none';
+            success.classList.add('is-visible');
+        } catch (err) {
+            note.textContent = err.message;
+            note.style.color = '#e040fb';
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
     });
 
     // Smooth scroll for anchor links
