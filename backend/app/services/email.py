@@ -70,5 +70,5 @@ def _send_email_sync(to_email: str, code: str) -> bool:
 
 async def send_verification_email(to_email: str, code: str) -> bool:
     """Send a verification code email via AWS SES. Non-blocking."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _send_email_sync, to_email, code)
