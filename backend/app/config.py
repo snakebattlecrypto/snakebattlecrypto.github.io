@@ -10,9 +10,11 @@ class Settings(BaseSettings):
     ses_from_email: str = "noreply@snakebattle.cc"
     webhook_url: str
     frontend_url: str = "https://snakebattle.cc"
+    db_password: str = ""
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 settings = Settings()
