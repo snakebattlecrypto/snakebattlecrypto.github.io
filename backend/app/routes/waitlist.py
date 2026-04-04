@@ -61,17 +61,14 @@ async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncS
             user.code_requests_reset_at = now + timedelta(hours=1)
 
         user.code_requests_count += 1
-
-        # Apply ref on resend if not already set
-        if valid_ref and not user.referred_by:
-            user.referred_by = valid_ref
     else:
-        # Waitlist position = next available
-        count_result = await session.execute(
-            select(WaitlistUser.id).order_by(WaitlistUser.id.desc()).limit(1)
+        # Atomic position assignment with advisory lock to prevent duplicates
+        from sqlalchemy import func, text
+        await session.execute(text("SELECT pg_advisory_xact_lock(1)"))
+        pos_result = await session.execute(
+            select(func.coalesce(func.max(WaitlistUser.waitlist_position), 0) + 1)
         )
-        last = count_result.scalar_one_or_none()
-        position = (last or 0) + 1
+        position = pos_result.scalar()
 
         user = WaitlistUser(
             email=email,
@@ -91,6 +88,13 @@ async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncS
     await session.commit()
 
     # Enqueue email for async delivery
-    await enqueue_email(email)
+    try:
+        await enqueue_email(email)
+    except Exception:
+        # Redis down — fall back to direct send
+        import logging
+        logging.getLogger(__name__).warning("Redis enqueue failed for %s, sending directly", email)
+        from app.services.email import send_verification_email
+        await send_verification_email(email, code)
 
     return WaitlistResponse(success=True, message="Verification code sent to your email")
