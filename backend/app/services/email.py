@@ -1,20 +1,30 @@
+import asyncio
+import logging
+
 import boto3
 from botocore.exceptions import ClientError
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
+_ses_client = None
+
 
 def _get_ses_client():
-    return boto3.client(
-        "ses",
-        region_name=settings.aws_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
-    )
+    global _ses_client
+    if _ses_client is None:
+        _ses_client = boto3.client(
+            "ses",
+            region_name=settings.aws_region,
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+        )
+    return _ses_client
 
 
-async def send_verification_email(to_email: str, code: str) -> bool:
-    """Send a verification code email via AWS SES. Returns True on success."""
+def _send_email_sync(to_email: str, code: str) -> bool:
+    """Synchronous SES send — meant to be called via run_in_executor."""
     html_body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;
                 background: #0a0a0f; color: #ffffff; padding: 40px; border-radius: 16px;">
@@ -53,5 +63,12 @@ async def send_verification_email(to_email: str, code: str) -> bool:
             },
         )
         return True
-    except ClientError:
+    except ClientError as e:
+        logger.error("SES send failed for %s: %s", to_email, e)
         return False
+
+
+async def send_verification_email(to_email: str, code: str) -> bool:
+    """Send a verification code email via AWS SES. Non-blocking."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _send_email_sync, to_email, code)
