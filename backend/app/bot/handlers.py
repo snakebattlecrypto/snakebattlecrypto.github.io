@@ -1,5 +1,4 @@
 import logging
-from collections import defaultdict
 from datetime import datetime, timezone
 
 from aiogram import Dispatcher, F, Router
@@ -7,35 +6,28 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import MultipleResultsFound
 
 from app.database import async_session
 from app.models import WaitlistUser
+from app.services.email_queue import get_redis
 from app.services.verification import generate_referral_code
 
 logger = logging.getLogger(__name__)
 router = Router()
 
-# In-memory brute-force protection: {telegram_id: (attempt_count, first_attempt_time)}
-_code_attempts: dict[int, tuple[int, float]] = defaultdict(lambda: (0, 0.0))
 MAX_CODE_ATTEMPTS = 10
-ATTEMPT_WINDOW = 900  # 15 minutes in seconds
+ATTEMPT_WINDOW = 900  # 15 minutes
 
 
-def _check_rate_limit(telegram_id: int) -> bool:
-    """Returns True if the user is allowed to attempt, False if rate limited."""
-    now = datetime.now(timezone.utc).timestamp()
-    count, first_time = _code_attempts[telegram_id]
-
-    # Reset window if expired
-    if now - first_time > ATTEMPT_WINDOW:
-        _code_attempts[telegram_id] = (1, now)
-        return True
-
-    if count >= MAX_CODE_ATTEMPTS:
-        return False
-
-    _code_attempts[telegram_id] = (count + 1, first_time)
-    return True
+async def _check_rate_limit(telegram_id: int) -> bool:
+    """Check brute-force rate limit via Redis. Works across all workers."""
+    r = await get_redis()
+    key = f"code_attempts:{telegram_id}"
+    count = await r.incr(key)
+    if count == 1:
+        await r.expire(key, ATTEMPT_WINDOW)
+    return count <= MAX_CODE_ATTEMPTS
 
 
 @router.message(Command("start"))
@@ -58,9 +50,10 @@ async def cmd_status(message: Message):
         await message.answer("You haven't verified yet. Enter your 6-digit code or visit snakebattle.cc")
         return
 
+    position = user.waitlist_position or "N/A"
     await message.answer(
         f"Status: {user.status.upper()}\n"
-        f"Position: #{user.waitlist_position}\n"
+        f"Position: #{position}\n"
         f"Referrals: {user.referral_count} people"
     )
 
@@ -103,8 +96,8 @@ async def handle_code(message: Message):
     now = datetime.now(timezone.utc)
     telegram_id = message.from_user.id
 
-    # Brute-force protection
-    if not _check_rate_limit(telegram_id):
+    # Brute-force protection via Redis (shared across all workers)
+    if not await _check_rate_limit(telegram_id):
         await message.answer("Too many attempts. Please wait 15 minutes and try again.")
         return
 
@@ -118,18 +111,24 @@ async def handle_code(message: Message):
             return
 
         # Find user by code — lock row to prevent race conditions
-        result = await session.execute(
-            select(WaitlistUser)
-            .where(
-                WaitlistUser.verification_code == code,
-                WaitlistUser.code_expires_at > now,
-                WaitlistUser.status == "pending",
+        try:
+            result = await session.execute(
+                select(WaitlistUser)
+                .where(
+                    WaitlistUser.verification_code == code,
+                    WaitlistUser.code_expires_at > now,
+                    WaitlistUser.status == "pending",
+                )
+                .with_for_update()
             )
-            .with_for_update()
-        )
-        user = result.scalar_one_or_none()
+            user = result.scalar_one_or_none()
+        except MultipleResultsFound:
+            logger.warning("Code collision detected for code %s", code)
+            await message.answer("Something went wrong. Please request a new code at snakebattle.cc")
+            return
 
         if not user:
+            logger.info("Failed code attempt from telegram_id=%d, code=%s", telegram_id, code)
             await message.answer("Invalid or expired code. Request a new one at snakebattle.cc")
             return
 
