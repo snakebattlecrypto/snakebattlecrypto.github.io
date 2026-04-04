@@ -33,7 +33,11 @@ app = FastAPI(title="Snake Battle API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:8080"],
+    allow_origins=[
+        settings.frontend_url,
+        settings.frontend_url.replace("https://", "http://"),
+        "http://localhost:8080",
+    ],
     allow_methods=["POST"],
     allow_headers=["*"],
 )
