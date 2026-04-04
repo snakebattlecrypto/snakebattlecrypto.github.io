@@ -3,9 +3,11 @@ import json
 import logging
 
 from redis.asyncio import Redis
+from sqlalchemy import select
 
 from app.config import settings
-from app.services.email import send_verification_email
+from app.database import async_session
+from app.models import WaitlistUser
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +32,28 @@ async def close_redis():
         _redis = None
 
 
-async def enqueue_email(to_email: str, code: str):
-    """Push an email task onto the Redis queue."""
+async def enqueue_email(to_email: str):
+    """Push an email task onto the Redis queue. Code is fetched from DB at send time."""
     r = await get_redis()
-    task = json.dumps({"to_email": to_email, "code": code, "retries": 0})
+    task = json.dumps({"to_email": to_email, "retries": 0})
     await r.lpush(QUEUE_KEY, task)
     logger.info("Enqueued verification email for %s", to_email)
 
 
+async def _get_current_code(email: str) -> str | None:
+    """Look up the current verification code from the database."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(WaitlistUser.verification_code).where(WaitlistUser.email == email)
+        )
+        return result.scalar_one_or_none()
+
+
 async def email_worker():
     """Background worker that processes the email queue."""
+    # Import here to avoid circular imports
+    from app.services.email import send_verification_email
+
     logger.info("Email worker started")
     r = await get_redis()
 
@@ -53,8 +67,13 @@ async def email_worker():
             _, raw_task = result
             task = json.loads(raw_task)
             to_email = task["to_email"]
-            code = task["code"]
             retries = task.get("retries", 0)
+
+            # Fetch current code from DB (not from queue)
+            code = await _get_current_code(to_email)
+            if not code:
+                logger.info("No active code for %s, skipping", to_email)
+                continue
 
             success = await send_verification_email(to_email, code)
 

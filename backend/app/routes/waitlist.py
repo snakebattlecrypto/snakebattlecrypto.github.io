@@ -91,6 +91,6 @@ async def join_waitlist(request: Request, body: WaitlistRequest, session: AsyncS
     await session.commit()
 
     # Enqueue email for async delivery
-    await enqueue_email(email, code)
+    await enqueue_email(email)
 
     return WaitlistResponse(success=True, message="Verification code sent to your email")
