@@ -43,6 +43,9 @@ async def cmd_start(message: Message):
             f"You're already verified! Welcome back.\n\n"
             f"Your referral link:\nsnakebattle.cc/?ref={user.referral_code}\n\n"
             f"You've invited {user.referral_count} people.\n\n"
+            f"Join our community:\n"
+            f"Channel: https://t.me/snakebattlecrypto\n"
+            f"Chat: https://t.me/snakebattlecryptochat\n\n"
             f"Use /help to see available commands."
         )
         return
@@ -193,7 +196,10 @@ async def handle_code(message: Message):
     await message.answer(
         f"Verified! Welcome to Snake Battle.\n\n"
         f"Your referral link:\nsnakebattle.cc/?ref={ref_code}\n\n"
-        f"Share it to climb the waitlist!"
+        f"Share it to climb the waitlist!\n\n"
+        f"Join our community:\n"
+        f"Channel: https://t.me/snakebattlecrypto\n"
+        f"Chat: https://t.me/snakebattlecryptochat"
     )
 
 
