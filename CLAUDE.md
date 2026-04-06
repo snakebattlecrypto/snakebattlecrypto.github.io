@@ -8,7 +8,8 @@
 - Секции: Hero, Feature pills (4 карточки), How It Works (4 step-cards), Waitlist форма, Footer
 - Интерактивные змейки на canvas (бегут по сетке при движении курсора)
 - Навигация: лого слева, "Join Waitlist" справа (мобильная адаптация)
-- Соцсети: Telegram, Twitter/X, Facebook, Instagram, YouTube, TikTok (2x2 grid на мобильном)
+- Соцсети: Telegram, X, Instagram, YouTube, TikTok (3+2 flex на мобильном) — с реальными ссылками
+- Favicon: SVG змейка в neon стиле проекта
 - Footer ссылки: Whitepaper (docs.snakebattle.cc), Pitch Deck (deck.snakebattle.cc)
 - Форма шлёт POST на api.snakebattle.cc/api/waitlist
 - После сабмита — ссылка на бота t.me/snakebattlecryptobot
@@ -23,8 +24,7 @@
 - API: `POST /api/waitlist`, `POST /api/telegram/webhook`, `GET /health`
 - **4 Uvicorn workers** за Nginx reverse proxy
 - **Redis email queue** — async отправка через background worker с retry (3 попытки, 5/15/30s)
-- Email через AWS SES (eu-north-1, Stockholm), неблокирующий через run_in_executor
-- Singleton boto3 SES клиент с thread-safe double-checked locking
+- Email через Resend API (httpx async client)
 - Rate limit: 5 кодов/час на email (БД), 10/мин на IP (slowapi), 2r/s на IP (Nginx)
 - Код живёт 15 мин, генерируется через `secrets.choice` (криптографически безопасный)
 - DB connection pool: pool_size=5, max_overflow=10, pre_ping=True, recycle=1800
@@ -36,19 +36,20 @@
 - Referral только при первичной регистрации (нет ретроактивной инъекции)
 - MultipleResultsFound обработан для коллизий 6-значных кодов
 - Логирование неудачных попыток верификации
-- Fallback на прямую SES отправку если Redis недоступен
-- Стек: FastAPI, SQLAlchemy async, asyncpg, pydantic 2.8.2, boto3, redis, slowapi
+- Fallback на прямую Resend отправку если Redis недоступен
+- Стек: FastAPI, SQLAlchemy async, asyncpg, pydantic 2.8.2, httpx, redis, slowapi
 
 ### Telegram Bot (@snakebattlecryptobot) — ГОТОВ, на проде
 - aiogram 3.13, webhook mode с secret token
 - Команды:
-  - /start — проверяет статус: если verified → показывает реферальную ссылку, иначе просит код
+  - /start — проверяет статус: если verified → реферальная ссылка + ссылки на канал/чат, иначе просит код
   - /status — позиция в waitlist + кол-во рефералов
   - /referral — реферальная ссылка + счётчик (guard на None referral_code)
   - /help — список команд
 - Верификация 6-значным кодом с SELECT FOR UPDATE (row locking)
 - Referral code генерация с collision retry (5 попыток, secrets.choice)
 - IntegrityError handling для double-tap protection
+- После верификации — ссылки на TG канал (t.me/snakebattlecrypto) и чат (t.me/snakebattlecryptochat)
 
 ### Инфраструктура
 - **GitHub:** github.com/snakebattlecrypto/snakebattlecrypto.github.io (main ветка)
@@ -63,7 +64,7 @@
   - CNAME api → 195.201.232.33 (Proxied, API)
   - CNAME docs → mazetezr.github.io (Whitepaper)
   - CNAME deck → mazetezr.github.io (Pitch Deck)
-- **AWS SES:** eu-north-1, домен snakebattle.cc верифицирован, production access запрошен (ответ от AWS получен, ответили с описанием use case)
+- **Email:** Resend API (домен snakebattle.cc, httpx async client)
 - **Uvicorn:** --workers 4, --forwarded-allow-ips 127.0.0.1
 - **Путь на сервере:** ~/snakebattle/backend/
 
@@ -79,9 +80,23 @@
 ### Известные ограничения
 - pydantic 2.8.2 (не 2.9) — конфликт с aiogram 3.13
 - config.py: `extra = "ignore"` для лишних ENV переменных
-- SES в sandbox — пока шлёт только на верифицированные email (ожидаем production access)
+- ~~SES в sandbox~~ — мигрировали на Resend API
 - Email enumeration через 409 vs 200 — осознанный trade-off для UX
 - Нет Alembic миграций — таблицы через create_all на старте
+
+---
+
+## Сделано 2026-04-05
+
+### Landing Page
+- Удалён Facebook из footer соцсетей
+- Проставлены реальные ссылки на все 5 соцсетей (Telegram, X, Instagram, YouTube, TikTok)
+- Мобильный grid соцсетей: 2x3 grid → 3+2 flex layout (для 5 элементов)
+- Добавлен SVG favicon (змейка в neon cyan/magenta стиле)
+
+### Telegram Bot
+- Ссылки на TG канал и чат после успешной верификации
+- Ссылки на TG канал и чат в /start для уже верифицированных
 
 ---
 

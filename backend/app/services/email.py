@@ -1,34 +1,16 @@
-import asyncio
 import logging
-import threading
 
-import boto3
-from botocore.exceptions import ClientError
+import httpx
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_ses_client = None
-_ses_lock = threading.Lock()
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
-def _get_ses_client():
-    global _ses_client
-    if _ses_client is None:
-        with _ses_lock:
-            if _ses_client is None:
-                _ses_client = boto3.client(
-                    "ses",
-                    region_name=settings.aws_region,
-                    aws_access_key_id=settings.aws_access_key_id,
-                    aws_secret_access_key=settings.aws_secret_access_key,
-                )
-    return _ses_client
-
-
-def _send_email_sync(to_email: str, code: str) -> bool:
-    """Synchronous SES send — meant to be called via run_in_executor."""
+async def send_verification_email(to_email: str, code: str) -> bool:
+    """Send a verification code email via Resend API."""
     html_body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;
                 background: #0a0a0f; color: #ffffff; padding: 40px; border-radius: 16px;">
@@ -57,22 +39,25 @@ def _send_email_sync(to_email: str, code: str) -> bool:
     """
 
     try:
-        client = _get_ses_client()
-        client.send_email(
-            Source=settings.ses_from_email,
-            Destination={"ToAddresses": [to_email]},
-            Message={
-                "Subject": {"Data": "Your Snake Battle verification code", "Charset": "UTF-8"},
-                "Body": {"Html": {"Data": html_body, "Charset": "UTF-8"}},
-            },
-        )
-        return True
-    except ClientError as e:
-        logger.error("SES send failed for %s: %s", to_email, e)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                RESEND_API_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": settings.from_email,
+                    "to": [to_email],
+                    "subject": "Your Snake Battle verification code",
+                    "html": html_body,
+                },
+                timeout=10.0,
+            )
+            if response.status_code == 200:
+                return True
+            logger.error("Resend API error for %s: %s %s", to_email, response.status_code, response.text)
+            return False
+    except httpx.HTTPError as e:
+        logger.error("Resend request failed for %s: %s", to_email, e)
         return False
-
-
-async def send_verification_email(to_email: str, code: str) -> bool:
-    """Send a verification code email via AWS SES. Non-blocking."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _send_email_sync, to_email, code)
