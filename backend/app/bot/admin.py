@@ -77,6 +77,31 @@ async def cmd_stats(message: Message):
     await message.answer(text)
 
 
+@router.message(Command("pending"))
+async def cmd_pending(message: Message):
+    if message.from_user.id != settings.admin_telegram_id:
+        return
+
+    async with async_session() as session:
+        result = (await session.execute(
+            select(WaitlistUser.email, WaitlistUser.created_at)
+            .where(WaitlistUser.status == "pending")
+            .order_by(WaitlistUser.created_at.desc())
+            .limit(20)
+        )).all()
+
+    if not result:
+        await message.answer("No pending users.")
+        return
+
+    text = f"Pending users ({len(result)}):\n\n"
+    for email, created_at in result:
+        date = created_at.strftime("%d.%m %H:%M")
+        text += f"{email} — {date}\n"
+
+    await message.answer(text)
+
+
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     if message.from_user.id != settings.admin_telegram_id:
@@ -85,6 +110,7 @@ async def cmd_help(message: Message):
     await message.answer(
         "Admin Bot Commands:\n\n"
         "/stats — Waitlist stats + top referrers\n"
+        "/pending — List pending users\n"
         "/help — This message"
     )
 
