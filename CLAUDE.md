@@ -21,7 +21,7 @@
 
 ### Backend (FastAPI) — ГОТОВ, на проде
 - Путь: `backend/` в этом же репо
-- API: `POST /api/waitlist`, `POST /api/telegram/webhook`, `GET /health`
+- API: `POST /api/waitlist`, `POST /api/telegram/webhook`, `POST /api/admin/webhook`, `GET /health`
 - **4 Uvicorn workers** за Nginx reverse proxy
 - **Redis email queue** — async отправка через background worker с retry (3 попытки, 5/15/30s)
 - Email через Resend API (httpx async client)
@@ -51,10 +51,22 @@
 - IntegrityError handling для double-tap protection
 - После верификации — ссылки на TG канал (t.me/snakebattlecrypto) и чат (t.me/snakebattlecryptochat)
 
-### Инфраструктура
+### Admin Bot (отдельный бот) — ГОТОВ, на проде
+- Отдельный Telegram бот, общая БД с основным
+- Webhook endpoint: `/api/admin/webhook`
+- Доступ ограничен по `ADMIN_TELEGRAM_ID`
+- Команды:
+  - /stats — общая статистика (total/verified/pending, new today, emails today, top referrers)
+  - /pending — список pending юзеров с датами
+  - /help — список команд
+- Проактивные уведомления при каждой новой верификации
+- Счётчик отправленных писем в Redis (`emails_sent:YYYY-MM-DD`)
+- Конфиг: `ADMIN_BOT_TOKEN`, `ADMIN_TELEGRAM_ID` в .env
+
+### Инфра��труктура
 - **GitHub:** github.com/snakebattlecrypto/snakebattlecrypto.github.io (main ветка)
 - **Сервер:** 195.201.232.33 (Hetzner Ubuntu, 4GB RAM)
-- **Docker:** backend-app-1 + backend-db-1 (PostgreSQL 16) + backend-redis-1 (Redis 7)
+- **Docker:** backend-app-1 + backend-db-1 (PostgreSQL 16) + backend-redis-1 (Redis 7), порты app и db привязаны к 127.0.0.1
 - **Docker healthchecks:** на всех 3 контейнерах (app через /health, db через pg_isready, redis через redis-cli ping)
 - **Redis:** с паролем (requirepass), persistent volume
 - **Nginx:** reverse proxy → api.snakebattle.cc, SSL через certbot, rate limiting (2 зоны)
@@ -80,9 +92,29 @@
 ### Известные ограничения
 - pydantic 2.8.2 (не 2.9) — конфликт с aiogram 3.13
 - config.py: `extra = "ignore"` для лишних ENV переменных
-- ~~SES в sandbox~~ — мигрировали на Resend API
+- Resend Free: 100 писем/день, 3000/мес (апгрейд на Pro $20/мес при необходимости)
 - Email enumeration через 409 vs 200 — осознанный trade-off для UX
 - Нет Alembic миграций — таблицы через create_all на старте
+
+---
+
+## Сделано 2026-04-06
+
+### Security
+- Закрыт порт 8000 (FastAPI) от внешнего доступа — привязан к 127.0.0.1 в docker-compose
+- Закрыт порт 5433 (neuro-postgres) — был открыт на 0.0.0.0
+
+### Email Migration
+- Миграция с AWS SES на Resend API (AWS отказал в production access для нового аккаунта)
+- boto3 → httpx async client, нативно async без run_in_executor
+- Счётчик отправленных писем в Redis (emails_sent:YYYY-MM-DD)
+
+### Admin Bot
+- Создан отдельный Telegram бот для админки
+- /stats — общая статистика waitlist + top referrers + emails today
+- /pending — список pending юзеров
+- Проактивные уведомления при каждой верификации
+- Доступ ограничен по ADMIN_TELEGRAM_ID
 
 ---
 
