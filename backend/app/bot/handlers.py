@@ -11,6 +11,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 from app.database import async_session
 from app.models import WaitlistUser
 from app.services.email_queue import get_redis
+from app.bot.admin import notify_admin
 from app.services.verification import generate_referral_code
 
 logger = logging.getLogger(__name__)
@@ -201,6 +202,8 @@ async def handle_code(message: Message):
         f"Channel: https://t.me/snakebattlecrypto\n"
         f"Chat: https://t.me/snakebattlecryptochat"
     )
+
+    await notify_admin(f"New verification: {user.email} (position #{user.waitlist_position})")
 
 
 @router.message()

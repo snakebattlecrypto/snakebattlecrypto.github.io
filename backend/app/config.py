@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     telegram_bot_token: str
     resend_api_key: str
     from_email: str = "noreply@snakebattle.cc"
+    admin_bot_token: str = ""
+    admin_telegram_id: int = 0
     webhook_url: str
     frontend_url: str = "https://snakebattle.cc"
     db_password: str = ""

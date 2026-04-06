@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -76,6 +77,11 @@ async def email_worker():
                 continue
 
             success = await send_verification_email(to_email, code)
+
+            if success:
+                today_key = f"emails_sent:{datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
+                await r.incr(today_key)
+                await r.expire(today_key, 172800)
 
             if not success and retries < MAX_RETRIES:
                 delay = RETRY_DELAYS[retries]
